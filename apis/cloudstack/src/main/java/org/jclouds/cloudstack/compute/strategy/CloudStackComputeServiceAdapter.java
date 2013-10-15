@@ -229,26 +229,31 @@ public class CloudStackComputeServiceAdapter implements
          assert vm.getPassword() != null : vm;
          credentialsBuilder.password(vm.getPassword());
       }
-      
-      if (templateOptions.shouldSetupStaticNat()) {
-         Capabilities capabilities = client.getConfigurationClient().listCapabilities();
-         // TODO: possibly not all network ids, do we want to do this
-         for (String networkId : options.getNetworkIds()) {
-            logger.debug(">> creating static NAT for virtualMachine(%s) in network(%s)", vm.getId(), networkId);
-            PublicIPAddress ip = staticNATVMInNetwork.create(networks.get(networkId)).apply(vm);
-            logger.trace("<< static NATed IPAddress(%s) to virtualMachine(%s)", ip.getId(), vm.getId());
-            vm = client.getVirtualMachineClient().getVirtualMachine(vm.getId());
-            List<Integer> ports = Ints.asList(templateOptions.getInboundPorts());
-            if (capabilities.getCloudStackVersion().startsWith("2")) {
-               logger.debug(">> setting up IP forwarding for IPAddress(%s) rules(%s)", ip.getId(), ports);
-               Set<IPForwardingRule> rules = setupPortForwardingRulesForIP.apply(ip, ports);
-               logger.trace("<< setup %d IP forwarding rules on IPAddress(%s)", rules.size(), ip.getId());
-            } else {
-               logger.debug(">> setting up firewall rules for IPAddress(%s) rules(%s)", ip.getId(), ports);
-               Set<FirewallRule> rules = setupFirewallRulesForIP.apply(ip, ports);
-               logger.trace("<< setup %d firewall rules on IPAddress(%s)", rules.size(), ip.getId());
-            }
-         }
+      try {
+          if (templateOptions.shouldSetupStaticNat()) {
+             Capabilities capabilities = client.getConfigurationClient().listCapabilities();
+             // TODO: possibly not all network ids, do we want to do this
+             for (String networkId : options.getNetworkIds()) {
+                logger.debug(">> creating static NAT for virtualMachine(%s) in network(%s)", vm.getId(), networkId);
+                PublicIPAddress ip = staticNATVMInNetwork.create(networks.get(networkId)).apply(vm);
+                logger.trace("<< static NATed IPAddress(%s) to virtualMachine(%s)", ip.getId(), vm.getId());
+                vm = client.getVirtualMachineClient().getVirtualMachine(vm.getId());
+                List<Integer> ports = Ints.asList(templateOptions.getInboundPorts());
+                if (capabilities.getCloudStackVersion().startsWith("2")) {
+                   logger.debug(">> setting up IP forwarding for IPAddress(%s) rules(%s)", ip.getId(), ports);
+                   Set<IPForwardingRule> rules = setupPortForwardingRulesForIP.apply(ip, ports);
+                   logger.trace("<< setup %d IP forwarding rules on IPAddress(%s)", rules.size(), ip.getId());
+                } else {
+                   logger.debug(">> setting up firewall rules for IPAddress(%s) rules(%s)", ip.getId(), ports);
+                   Set<FirewallRule> rules = setupFirewallRulesForIP.apply(ip, ports);
+                   logger.trace("<< setup %d firewall rules on IPAddress(%s)", rules.size(), ip.getId());
+                }
+             }
+          }
+      } catch (RuntimeException re) {
+          logger.debug("-- exception after node has been created, trying to destroy the created VM");
+          destroyVirtualMachine(vm.getId());
+          throw(re);
       }
       return new NodeAndInitialCredentials<VirtualMachine>(vm, vm.getId() + "", credentialsBuilder.build());
    }
