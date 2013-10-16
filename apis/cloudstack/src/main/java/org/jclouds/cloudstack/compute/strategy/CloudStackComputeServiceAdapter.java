@@ -251,7 +251,7 @@ public class CloudStackComputeServiceAdapter implements
              }
           }
       } catch (RuntimeException re) {
-          logger.error("-- exception after node has been created, trying to destroy the created VM");
+          logger.error("-- exception after node has been created, trying to destroy the created virtualMachine(%s)", vm.getId());
           destroyNode(vm.getId());
           throw(re);
       }
