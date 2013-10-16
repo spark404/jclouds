@@ -252,7 +252,7 @@ public class CloudStackComputeServiceAdapter implements
           }
       } catch (RuntimeException re) {
           logger.error("-- exception after node has been created, trying to destroy the created VM");
-          destroyVirtualMachine(vm.getId());
+          destroyNode(vm.getId());
           throw(re);
       }
       return new NodeAndInitialCredentials<VirtualMachine>(vm, vm.getId() + "", credentialsBuilder.build());
